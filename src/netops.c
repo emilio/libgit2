@@ -249,7 +249,7 @@ int gitno_extract_url_parts(
 	url_userinfo_len = u.field_data[UF_USERINFO].len;
 
 	if (has_host)
-		git_buf_put(&host, url_host, url_host_len);
+		git_buf_decode_percent(&host, url_host, url_host_len);
 
 	if (has_port)
 		git_buf_put(&port, url_port, url_port_len);
