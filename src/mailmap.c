@@ -84,14 +84,20 @@ static void git_mailmap_parse_line(
 	const char* to_email;
 	size_t to_email_length;
 
-	ssize_t to_len;
+	const char* from_name;
+	size_t from_name_length;
+
+	const char* from_email;
+	size_t from_email_length;
+
+	ssize_t ret;
 
 	if (!size)
 		return;
 	if (contents[0] == '#')
 		return;
 
-	to_len = parse_name_and_email(
+	ret = parse_name_and_email(
 		contents,
 		size,
 		&to_name,
@@ -99,19 +105,33 @@ static void git_mailmap_parse_line(
 		&to_email,
 		&to_email_length,
 		false);
-	if (to_len < 0)
+	if (ret < 0)
+		return;
+
+	ret = parse_name_and_email(
+		contents + ret + 1,
+		size - ret - 1,
+		&from_name,
+		&from_name_length,
+		&from_email,
+		&from_email_length,
+		true);
+	if (ret < 0)
 		return;
 
 	entry = git__malloc(sizeof(struct mailmap_entry));
 
 	entry->to_name = git__strndup(to_name, to_name_length);
 	entry->to_email = git__strndup(to_email, to_email_length);
+	entry->from_name = git__strndup(from_name, from_name_length);
+	entry->from_email = git__strndup(from_email, from_email_length);
 
-	printf("%s <%s>\n", entry->to_name, entry->to_email);
+	printf("%s <%s> \"%s\" <%s>\n",
+		entry->to_name,
+		entry->to_email,
+		entry->from_name,
+		entry->from_email);
 
-	// TODO
-	entry->from_name = NULL;
-	entry->from_email = NULL;
 	git_vector_insert(&mailmap->lines, entry);
 }
 
