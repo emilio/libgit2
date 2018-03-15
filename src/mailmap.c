@@ -14,19 +14,105 @@
 #include "git2/revparse.h"
 #include "git2/sys/commit.h"
 
-struct git_mailmap {
-	git_array_t(char*) lines;
+struct mailmap_entry {
+	char* to_name;
+	char* to_email;
+	char* from_name;
+	char* from_email;
 };
+
+struct git_mailmap {
+	git_vector lines;
+};
+
+// Returns -1 on failure, length of the string scanned successfully on success,
+// guaranteed to be less that `length`.
+ssize_t parse_name_and_email(
+	const char *line,
+	size_t length,
+	const char** name,
+	size_t* name_len,
+	const char** email,
+	size_t* email_len,
+	bool allow_empty_email)
+{
+	const char* email_start;
+	const char* email_end;
+	const char* name_start;
+	const char* name_end;
+
+	email_start = memchr(line, '<', length);
+	if (!email_start)
+		return -1;
+	email_end = memchr(email_start, '>', length - (email_start - line));
+	if (!email_end)
+		return -1;
+	assert(email_end > email_start);
+
+	*email_len = email_end - email_start - 1;
+	*email = email_start + 1;
+	if (*email == email_end && !allow_empty_email)
+		return -1;
+
+	// Now look for the name.
+	name_start = line;
+	while (name_start < email_start && isspace(*name_start))
+		++name_start;
+
+	*name = name_start;
+
+	name_end = email_start;
+	while (name_end > name_start && isspace(*(name_end - 1)))
+		name_end--;
+
+	assert(name_end >= name_start);
+	*name_len = name_end - name_start;
+
+	return email_end - line;
+}
 
 static void git_mailmap_parse_line(
 	git_mailmap* mailmap,
 	const char* contents,
 	size_t size)
 {
+	struct mailmap_entry* entry;
+
+	const char* to_name;
+	size_t to_name_length;
+
+	const char* to_email;
+	size_t to_email_length;
+
+	ssize_t to_len;
+
 	if (!size)
 		return;
 	if (contents[0] == '#')
 		return;
+
+	to_len = parse_name_and_email(
+		contents,
+		size,
+		&to_name,
+		&to_name_length,
+		&to_email,
+		&to_email_length,
+		false);
+	if (to_len < 0)
+		return;
+
+	entry = git__malloc(sizeof(struct mailmap_entry));
+
+	entry->to_name = git__strndup(to_name, to_name_length);
+	entry->to_email = git__strndup(to_email, to_email_length);
+
+	printf("%s <%s>\n", entry->to_name, entry->to_email);
+
+	// TODO
+	entry->from_name = NULL;
+	entry->from_email = NULL;
+	git_vector_insert(&mailmap->lines, entry);
 }
 
 static void git_mailmap_parse(
@@ -36,7 +122,7 @@ static void git_mailmap_parse(
 {
 	size_t start = 0;
 	size_t i;
-	for (i = 0; i < size; ++i)
+	for (i = 0; i < size; ++i) {
 		if (contents[i] != '\n')
 			continue;
 		git_mailmap_parse_line(mailmap, contents + start, i - start);
@@ -53,7 +139,7 @@ int git_mailmap_create(git_mailmap** mailmap, git_repository* repo)
 	int ret;
 
 	*mailmap = git__malloc(sizeof(struct git_mailmap));
-	git_array_init((*mailmap)->lines);
+	git_vector_init(&(*mailmap)->lines, 0, NULL);
 
 	ret = git_revparse_single((git_object **)&head, repo, "HEAD");
 	if (ret)
@@ -67,11 +153,10 @@ int git_mailmap_create(git_mailmap** mailmap, git_repository* repo)
 	if (ret)
 		goto error;
 
-	size = git_blob_rawsize(mailmap_blob);
 	contents = git_blob_rawcontent(mailmap_blob);
+	size = git_blob_rawsize(mailmap_blob);
 
-	(void) size;
-	printf(contents);
+	git_mailmap_parse(*mailmap, contents, size);
 
 	return 0;
 
@@ -89,12 +174,15 @@ error:
 void git_mailmap_free(struct git_mailmap* mailmap)
 {
 	size_t i;
-	char* line;
-	for (i = 0; i < git_array_size(mailmap->lines); i++) {
-		line = *git_array_get(mailmap->lines, i);
+	struct mailmap_entry* line;
+	git_vector_foreach(&mailmap->lines, i, line) {
+		git__free((char*)line->to_name);
+		git__free((char*)line->to_email);
+		git__free((char*)line->from_name);
+		git__free((char*)line->from_email);
 		git__free(line);
 	}
 
-	git_array_clear(mailmap->lines);
+	git_vector_clear(&mailmap->lines);
 	git__free(mailmap);
 }
