@@ -28,9 +28,32 @@ void test_mailmap_basic__entry_count(void)
 {
 	git_mailmap_entry* entry;
 
-	cl_assert(git_mailmap_entry_count(mailmap));
+	cl_assert(git_mailmap_entry_count(mailmap) == 2);
+
 	entry = git_mailmap_entry_byindex(mailmap, 0);
 	cl_assert(entry);
 	cl_assert(!entry->replace_name);
 	cl_assert(!git__strcmp(entry->replace_email, "foo@baz.com"));
+
+	entry = git_mailmap_entry_byindex(mailmap, 10000);
+	cl_assert(!entry);
+}
+
+void test_mailmap_basic__lookup_not_found(void)
+{
+	git_mailmap_entry* entry = git_mailmap_entry_lookup(
+		mailmap,
+		"Whoever",
+		"doesnotexist@fo.com");
+	cl_assert(!entry);
+}
+
+void test_mailmap_basic__lookup(void)
+{
+	git_mailmap_entry* entry = git_mailmap_entry_lookup(
+		mailmap,
+		"Typoed the name once",
+		"foo@baz.com");
+	cl_assert(entry);
+	cl_assert(!strcmp(entry->real_name, "Foo bar"));
 }
