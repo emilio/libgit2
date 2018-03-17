@@ -24,7 +24,7 @@ void test_mailmap_basic__cleanup(void)
 	}
 }
 
-void test_mailmap_basic__entry_count(void)
+void test_mailmap_basic__entry(void)
 {
 	git_mailmap_entry* entry;
 
