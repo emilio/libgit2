@@ -8,7 +8,8 @@ static git_mailmap *mailmap = NULL;
 
 const char TEST_MAILMAP[] =
 	"Foo bar <foo@bar.com> <foo@baz.com>\n"
-	"Blatantly invalid line\n";
+	"Blatantly invalid line\n"
+	"Foo bar <foo@bar.com> <foo@bal.com>\n";
 
 void test_mailmap_basic__initialize(void)
 {
