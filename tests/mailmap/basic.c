@@ -10,7 +10,8 @@ const char TEST_MAILMAP[] =
 	"Foo bar <foo@bar.com> <foo@baz.com>  \n"
 	"Blatantly invalid line\n"
 	"Foo bar <foo@bar.com> <foo@bal.com>\n"
-	"<email@foo.com> <otheremail@foo.com>\n";
+	"<email@foo.com> <otheremail@foo.com>\n"
+	"<email@foo.com> Other Name <yetanotheremail@foo.com>\n";
 
 void test_mailmap_basic__initialize(void)
 {
@@ -29,7 +30,7 @@ void test_mailmap_basic__entry(void)
 {
 	git_mailmap_entry* entry;
 
-	cl_assert(git_mailmap_entry_count(mailmap) == 3);
+	cl_assert(git_mailmap_entry_count(mailmap) == 4);
 
 	entry = git_mailmap_entry_byindex(mailmap, 0);
 	cl_assert(entry);
@@ -71,4 +72,27 @@ void test_mailmap_basic__empty_email_query(void)
 		"otheremail@foo.com");
 	cl_assert(!git__strcmp(name, "Author name"));
 	cl_assert(!git__strcmp(email, "email@foo.com"));
+}
+
+void test_mailmap_basic__name_matching(void)
+{
+	const char* name;
+	const char* email;
+	git_mailmap_resolve(
+		&name,
+		&email,
+		mailmap,
+		"Other Name",
+		"yetanotheremail@foo.com");
+	cl_assert(!git__strcmp(name, "Other Name"));
+	cl_assert(!git__strcmp(email, "email@foo.com"));
+
+	git_mailmap_resolve(
+		&name,
+		&email,
+		mailmap,
+		"Other Name That Doesn't Match",
+		"yetanotheremail@foo.com");
+	cl_assert(!git__strcmp(name, "Other Name That Doesn't Match"));
+	cl_assert(!git__strcmp(email, "yetanotheremail@foo.com"));
 }
