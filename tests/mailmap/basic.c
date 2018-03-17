@@ -9,7 +9,8 @@ static git_mailmap *mailmap = NULL;
 const char TEST_MAILMAP[] =
 	"Foo bar <foo@bar.com> <foo@baz.com>  \n"
 	"Blatantly invalid line\n"
-	"Foo bar <foo@bar.com> <foo@bal.com>\n";
+	"Foo bar <foo@bar.com> <foo@bal.com>\n"
+	"<email@foo.com> <otheremail@foo.com>\n";
 
 void test_mailmap_basic__initialize(void)
 {
@@ -28,7 +29,7 @@ void test_mailmap_basic__entry(void)
 {
 	git_mailmap_entry* entry;
 
-	cl_assert(git_mailmap_entry_count(mailmap) == 2);
+	cl_assert(git_mailmap_entry_count(mailmap) == 3);
 
 	entry = git_mailmap_entry_byindex(mailmap, 0);
 	cl_assert(entry);
@@ -55,5 +56,19 @@ void test_mailmap_basic__lookup(void)
 		"Typoed the name once",
 		"foo@baz.com");
 	cl_assert(entry);
-	cl_assert(!strcmp(entry->real_name, "Foo bar"));
+	cl_assert(!git__strcmp(entry->real_name, "Foo bar"));
+}
+
+void test_mailmap_basic__empty_email_query(void)
+{
+	const char* name;
+	const char* email;
+	git_mailmap_resolve(
+		&name,
+		&email,
+		mailmap,
+		"Author name",
+		"otheremail@foo.com");
+	cl_assert(!git__strcmp(name, "Author name"));
+	cl_assert(!git__strcmp(email, "email@foo.com"));
 }
